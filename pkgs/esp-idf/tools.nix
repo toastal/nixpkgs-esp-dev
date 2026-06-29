@@ -18,6 +18,13 @@
 }:
 
 let
+  required-python-version = "3.9";
+  ESP-IDF-version = lib.removePrefix "esp-idf-" versionSuffix;
+in
+assert lib.assertMsg (lib.versionAtLeast python3.version required-python-version)
+  "ESP-IDF ${ESP-IDF-version} requires Python ≧${required-python-version}";
+
+let
   # Map nix system strings to the platforms listed in tools.json
   systemToToolPlatformString = {
     "x86_64-linux" = "linux-amd64";
