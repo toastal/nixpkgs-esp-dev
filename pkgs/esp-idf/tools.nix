@@ -4,7 +4,7 @@
 , stdenv
 , lib
 , fetchurl
-, makeWrapper
+, makeBinaryWrapper
 , autoPatchelfHook
 
   # Dependencies for the various binary tools.
@@ -99,7 +99,7 @@ let
         inherit url sha256;
       };
 
-      nativeBuildInputs = [ makeWrapper ] ++ lib.optionals stdenv.isLinux [ autoPatchelfHook ];
+      nativeBuildInputs = [ makeBinaryWrapper ] ++ lib.optionals stdenv.isLinux [ autoPatchelfHook ];
       buildInputs = lib.optionals stdenv.isLinux runtimeDeps;
 
       phases = [ "unpackPhase" "installPhase" ] ++ lib.optionals stdenv.isLinux [ "fixupPhase" ];
@@ -141,7 +141,7 @@ let
               fi
               wrapper_file="$out/bin/$(basename "$file")"
               [ -d "$out/bin" ] || mkdir -p "$out/bin"
-              makeWrapper "$file" "$wrapper_file" ${lib.strings.concatStringsSep " " exportVarsWrapperArgsList}
+              makeBinaryWrapper "$file" "$wrapper_file" ${lib.strings.concatStringsSep " " exportVarsWrapperArgsList}
             done
           fi
         done
