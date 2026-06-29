@@ -14,9 +14,6 @@
 , glibc
 , ncurses5
 , python3
-, python310
-, python311
-, python312
 , libxml2_13
 }:
 
@@ -38,9 +35,6 @@ let
     libusb1
     udev
     python3
-    python310
-    python311
-    python312
     libxml2_13
   ];
 
@@ -101,15 +95,6 @@ let
       nativeBuildInputs = [ makeWrapper ] ++ lib.optionals stdenv.isLinux [ autoPatchelfHook ];
       buildInputs = lib.optionals stdenv.isLinux runtimeDeps;
 
-      # Configure autoPatchelfHook to ignore missing Python libraries that aren't available
-      autoPatchelfIgnoreMissingDeps = [
-        "libpython3.13.so.1.0"
-        "libpython3.9.so.1.0"
-        "libpython3.8.so.1.0"
-        "libpython3.7.so.1.0"
-        "libpython3.6.so.1.0"
-      ];
-
       phases = [ "unpackPhase" "installPhase" ] ++ lib.optionals stdenv.isLinux [ "fixupPhase" ];
 
       setSourceRoot = ''sourceRoot=$(echo ./${lib.strings.replicate stripContainerDirs "*/"})'';
@@ -124,6 +109,10 @@ let
       dontStrip = true;
 
       installPhase = ''
+        python_lib="$(find "${lib.getLib python3}/lib" -maxdepth 1 -name 'libpython*.so.*' -type f | head -n1)"
+        so_name="$(patchelf --print-soname "$python_lib")"
+        export so_name
+
         cp -r . $out
         rm $out/.attrs.*
 
@@ -136,12 +125,16 @@ let
             bindir=unwrapped_bin
           fi
           if [ -d "$out/$bindir" ]; then
-            for file in $out/$bindir/*; do
-              if [ -f "$file" ] && [ -x "$file" ]; then
-                wrapper_file="$out/bin/$(basename "$file")"
-                [ -d "$out/bin" ] || mkdir -p "$out/bin"
-                makeWrapper "$file" "$wrapper_file" ${lib.strings.concatStringsSep " " exportVarsWrapperArgsList}
+            for file in $(find "$out/$bindir" -type f -executable -maxdepth 1); do
+              libpython_so=$(patchelf --print-needed "$file" | grep -e "^libpython" || true)
+              if [ -n "$libpython_so" ] && [ "$libpython_so" != "$so_name" ]; then
+                echo "Removing $file" >&2
+                rm "$file"
+                continue
               fi
+              wrapper_file="$out/bin/$(basename "$file")"
+              [ -d "$out/bin" ] || mkdir -p "$out/bin"
+              makeWrapper "$file" "$wrapper_file" ${lib.strings.concatStringsSep " " exportVarsWrapperArgsList}
             done
           fi
         done
